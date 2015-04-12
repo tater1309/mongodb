@@ -1,8 +1,8 @@
 var http = require("http"),
 	express = require("express"),
 	bodyParser = require("body-parser"),
-	redis = require("redis"),
-	app, redisClient;
+	mongodb = require("mongodb"),
+	app, mongodbClient;
 
 //create a 4 digit shortened URL
 function getShortURL () {
@@ -24,73 +24,99 @@ function randomNum (low, high) {
 	return Math.floor(Math.random() * (high - low + 1) + low);
 }
 
-//add url to redis
-function addURL (longurl) {
-	var shorturl;
-
-	shorturl = getShortURL();
-
-	//add to redis short/long
-	redisClient.set(shorturl,longurl, function(err, reply) {
-		console.log("short/long: " + reply);
-	});
-
-	//add to redis long/short
-	redisClient.set(longurl,shorturl, function(err,reply) {
-		console.log("long/short: " + reply);
-	});
-
-	//add shortURL to count
-	redisClient.zadd("countShort", 0, shorturl, function(err, reply) {
-		console.log("zadd: " + reply);
-	});
-
-	return shorturl;
-}
-
-//see if url exists
-function checkURL (res, url) {
-	
-	redisClient.get(url, function(err, reply) {
-		
-		if (reply !== null) {
-			res.json({"returnURL":reply});
-		}
-		else {
-			if (url.indexOf("http://localhost:3000/") > -1) {
-				res.json({"returnURL":"Shortened URL not found"});
-			} else {
-				var shorturl = addURL(url);
-				res.json({"returnURL":shorturl});
-			}
-		} 
-	}); 
-}
-
-function redirectURL (req, res) {
-	var url = "http://localhost:3000/" + req.param(0);
+//redirect inputted short url
+function redirectURL (collection, url, res) { 
 	console.log(url);
-	
-	redisClient.get(url, function(err, reply) {
-		
-		if (reply !== null) {
-			redisClient.zincrby("countShort", 1, url);
-			res.redirect(reply);
+
+	collection.findOne({short : url}, function(err, item) {
+		if(!err) {
+			if (item !== null) {
+				collection.update({short : url}, {$inc: {  count: 1} });
+				res.redirect(item.long);
+			}
+			else {
+				res.redirect("http://localhost:3000/");
+			}
 		}
-		else {
-			res.redirect("http://localhost:3000/");
-		} 
 	});
 }
 
-function topten(res) {
-	redisClient.zrange("countShort", 0, 9, function(err, reply) {
-		res.json(reply);
+//make connection to db
+function connectDB(process, url, res) {
+	var mongourl = "mongodb://localhost/shorturl";
+	mongodbClient.connect(mongourl, function(err, db) {
+		if(err) {
+			return console.dir(err);
+		}
+		var collection = db.collection('urls');
+		process(collection, url, res);
 	});
 }
 
-//create redis client
-redisClient = redis.createClient();
+//insert long/short url into db
+var insertURL = function(collection, longurl, res) { 
+	var shorturl, doc;
+
+	shorturl = getShortURL();	
+	doc = {long: longurl, short: shorturl, count: 0};
+
+	collection.insert(doc, {w:1}, function(err, result) {
+		if(!err) {
+			res.json({"returnURL":shorturl});
+		}
+	}); 
+};
+
+//search for item in db
+var findURL = function(collection, url, res) {
+	//see if passed url is a shortened url
+	if (url.indexOf("http://localhost:3000/") > -1) {
+		collection.findOne({short : url}, function(err, item) {
+			if(!err) {
+				if (item !== null) {
+					//return found long url
+					res.json({"returnURL":item.long});
+				}
+				else {
+					//return that short URL not found
+					res.json({"returnURL":"Shortened URL not found"});
+				}
+			}
+		});
+	}
+	else {
+		collection.findOne({long : url}, function(err, item) {
+			if(!err) {
+				if (item !== null) {
+					//return found short url
+					res.json({"returnURL":item.short});
+				}
+				else {
+					//insert long/short url and return short url
+					connectDB(insertURL, url, res);
+				}
+			}
+		});
+	}
+};
+
+var getTopTen = function(collection, url, res) {
+	collection.aggregate([
+		//sort
+		{$sort: {count: -1}},
+
+		//get top ten
+		{$limit: 10}
+	], function(err, topten) {
+		if (topten !== null) {
+			//return top ten
+			res.json(topten);
+		}
+	});
+};
+
+//create mongodb client
+mongodbClient = mongodb.MongoClient;
 
 app = express();
 http.createServer(app).listen(3000);
@@ -100,18 +126,18 @@ app.use(bodyParser.urlencoded({extended: false}));
 
 app.get("/*", function (req, res) {
 	if (req.param(0) === "displayTopTen") {
-		topten(res);
+		connectDB(getTopTen, 0, res);
 	}
 	else {
-		redirectURL(req,res);
+		var sendtourl = "http://localhost:3000/" + req.param(0);
+		connectDB(redirectURL, sendtourl, res);
 	}
 	
 });
 
 app.post("/geturl", function (req, res) {
 	var urlinfo = req.body;
-	var returnurl;
-	checkURL(res, urlinfo.url);
+	connectDB(findURL, urlinfo.url, res);
 });
 
 console.log("Server is listening at http://localhost:3000/");

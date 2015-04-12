@@ -21,15 +21,15 @@ function processResults(url) {
 	});
 }
 
-function displayTopTen() {
+function displayTopTen() { 
 	$.getJSON("/displayTopTen", function (response){
 		$("main .topten").empty();
 		var $display = $("<ol>");
 		$("main .topten").append($display);
 		for (i=0; i<response.length; i++) {
-			$display.append($("<li>").text(response[i]));
+			$display.append($("<li>").text(response[i].short + "   " + response[i].count));
 		}
-	});
+	}); 
 }
 	
 $(document).ready(main);

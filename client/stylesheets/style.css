@@ -1,3 +1,4 @@
+/*
 body {
 	font-size: 100%;
 }
@@ -14,9 +15,9 @@ header .container, main .container, footer .container {
 
 p, a, ul {
 	font-family: 'Ubuntu', sans-serif;
-}
+} */
 
-/* HEADER */
+/* HEADER */ /*
 header {
 	background: white;
 	overflow: auto;
@@ -27,31 +28,11 @@ header h1 {
 	font-size: 2em;
 	float: left;
 	width: 570px;
-}
+} */
 
 
 /* MAIN */
-main {
-	background: white;
-}
-
-main h2 {
-	font-size: xx-large;
-}
-
-main .gameButtons {
-    padding: 30px 10px 30px 10px;
-    border-radius: 0 5px 5px 5px;
-    background: #eee;
-}
-
-main .gameButtons button {
-  font-weight: bold;
-  padding: 0 3px 0 3px;
-  border-radius: 5px;
-  background: #ccc;
-  cursor: pointer;
-  margin-left: 5px;
-  font-size: 1.3em;
+main #url {
+	width: 90%;
 }
 

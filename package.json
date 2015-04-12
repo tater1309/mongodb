@@ -1,10 +1,10 @@
 {
   "name": "urlresizer",
-  "version": "0.0.2",
-  "description": "assignment6 project",
+  "version": "0.0.1",
+  "description": "assignment8 project",
   "dependencies": {
     "express": "4.9.x",
-    "redis": "0.8.x",
+    "mongodb": "~2.0",
     "body-parser": "^1.8.1"
   }
 }
